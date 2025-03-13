@@ -30,18 +30,14 @@ class ClerkAuthMiddleware implements MiddlewareInterface
                     authorizedParties: Configure::read('Clerk.authorized_parties')
                 ),
             );
-        } catch (\Exception $e) {
-            // Log the exception or handle it as needed
-            error_log('Authentication error: ' . $e->getMessage());
-            // Optionally, you can set a default state or handle the request differently
+        } catch (\Exception $e) { 
+            error_log('Authentication error: ' . $e->getMessage()); 
         }
 
-        if ($requestState && $requestState->isSignedIn()) {
-            // Set the user details in the session
+        if ($requestState && $requestState->isSignedIn()) { 
             $session = $request->getAttribute('session');
             $session->write('Auth.User', $requestState->getPayload());
-        } else {
-            // Clear the user details from the session if not signed in
+        } else { 
             $session = $request->getAttribute('session');
             $session->delete('Auth.User');
         }
