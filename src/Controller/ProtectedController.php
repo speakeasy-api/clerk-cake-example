@@ -40,21 +40,20 @@ class ProtectedController extends AppController
     {
         $this->viewBuilder()->setClassName('Json');
 
-        $authPayload = $this->getRequest()->getAttribute('verified_clerk_payload');
+        $authPayload = $this->getRequest()->getSession()->read('Auth.User');
         if ($authPayload !== null) {
             $this->set('data', ['userId' => $authPayload->sub]);
         } else {
             $this->set('data', ['userId' => null]);
-         }
+        }
         $this->viewBuilder()->setOption('serialize', ['data']);
-
     }
 
     public function getGated()
     {
         $this->viewBuilder()->setClassName('Json');
 
-        $authPayload = $this->getRequest()->getAttribute('verified_clerk_payload');
+        $authPayload = $this->getRequest()->getSession()->read('Auth.User');
         if ($authPayload != null && $authPayload->sub) {
             $this->set('data', ['foo' => 'bar']);
         } else {

@@ -21,18 +21,29 @@ class ClerkAuthMiddleware implements MiddlewareInterface
         RequestHandlerInterface $handler
     ): ResponseInterface
     {
+        $requestState = null;
+        try {
+            $requestState = AuthenticateRequest::authenticateRequest(
+                $request,
+                new AuthenticateRequestOptions(
+                    secretKey: Configure::read('Clerk.secret_key'),
+                    authorizedParties: Configure::read('Clerk.authorized_parties')
+                ),
+            );
+        } catch (\Exception $e) {
+            // Log the exception or handle it as needed
+            error_log('Authentication error: ' . $e->getMessage());
+            // Optionally, you can set a default state or handle the request differently
+        }
 
-        $requestState = AuthenticateRequest::authenticateRequest(
-            $request,
-            new AuthenticateRequestOptions(
-                secretKey: Configure::read('Clerk.secret_key'),
-                authorizedParties: Configure::read('Clerk.authorized_parties')
-            ),
-        );
-        if ($requestState->isSignedIn()){
-            $request = $request->withAttribute('verified_clerk_payload', $requestState->getPayload());
+        if ($requestState && $requestState->isSignedIn()) {
+            // Set the user details in the session
+            $session = $request->getAttribute('session');
+            $session->write('Auth.User', $requestState->getPayload());
         } else {
-            $request = $request->withAttribute('verified_clerk_payload', null);
+            // Clear the user details from the session if not signed in
+            $session = $request->getAttribute('session');
+            $session->delete('Auth.User');
         }
 
         $response = $handler->handle($request);
