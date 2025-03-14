@@ -27,7 +27,13 @@ use Cake\Http\MiddlewareQueue;
 use Cake\ORM\Locator\TableLocator;
 use Cake\Routing\Middleware\AssetMiddleware;
 use Cake\Routing\Middleware\RoutingMiddleware;
-use App\Middleware\ClerkAuthMiddleware;
+use App\Middleware\CorsMiddleware;
+use Authentication\AuthenticationService;
+use Authentication\AuthenticationServiceInterface;
+use Authentication\AuthenticationServiceProviderInterface;
+use Authentication\Middleware\AuthenticationMiddleware;
+use Psr\Http\Message\ServerRequestInterface;
+use Cake\Routing\Router;
 
 /**
  * Application setup class.
@@ -37,7 +43,7 @@ use App\Middleware\ClerkAuthMiddleware;
  *
  * @extends \Cake\Http\BaseApplication<\App\Application>
  */
-class Application extends BaseApplication
+class Application extends BaseApplication implements AuthenticationServiceProviderInterface
 {
     /**
      * Load all the application configuration and bootstrap logic.
@@ -57,6 +63,9 @@ class Application extends BaseApplication
                 (new TableLocator())->allowFallbackClass(false)
             );
         }
+
+        // Load the Authentication plugin
+        $this->addPlugin('Authentication');
 
         /*
          * Only try to load DebugKit in development mode
@@ -91,22 +100,17 @@ class Application extends BaseApplication
             ]))
 
             // Add routing middleware.
-            // If you have a large number of routes connected, turning on routes
-            // caching in production could improve performance.
-            // See https://github.com/CakeDC/cakephp-cached-routing
             ->add(new RoutingMiddleware($this))
 
             // Parse various types of encoded request bodies so that they are
             // available as array through $request->getData()
-            // https://book.cakephp.org/4/en/controllers/middleware.html#body-parser-middleware
             ->add(new BodyParserMiddleware())
 
-            // Cross Site Request Forgery (CSRF) Protection Middleware
-            // https://book.cakephp.org/4/en/security/csrf.html#cross-site-request-forgery-csrf-middleware
-            ->add(new CsrfProtectionMiddleware([
-                'httponly' => true,
-            ]))
-            ->add(new ClerkAuthMiddleware());
+            // Add CORS handling first - make sure it's instantiated properly
+            ->add(new CorsMiddleware())
+            
+            // Add Authentication middleware
+            ->add(new AuthenticationMiddleware($this));
 
         return $middlewareQueue;
     }
@@ -136,5 +140,28 @@ class Application extends BaseApplication
         $this->addPlugin('Migrations');
 
         // Load more plugins here
+    }
+
+    /**
+     * Returns a service provider instance.
+     */
+    public function getAuthenticationService(ServerRequestInterface $request): AuthenticationServiceInterface
+    {
+        // Create a service with minimal configuration
+        $service = new AuthenticationService([
+            'identityClass' => \Authentication\Identity::class,
+            'identityAttribute' => 'identity',
+        ]);
+        
+        // Add our custom Clerk authenticator - the only one we need
+        $service->loadAuthenticator('App\Auth\ClerkAuthenticator');
+        
+        // Load a minimal identifier that works with our authenticator
+        $service->loadIdentifier('Authentication.Token', [
+            'tokenField' => 'id',
+            'dataField' => 'identity',
+        ]);
+        
+        return $service;
     }
 }
