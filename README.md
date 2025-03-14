@@ -56,28 +56,31 @@ sequenceDiagram
     participant Auth as AuthenticationMiddleware
     participant Clerk as ClerkAuthenticator
     participant Cont as ProtectedController
-    
-    Client->>+CORS: HTTP Request with JWT token
+
+    Client->>+CORS: HTTP Request with  token
     CORS->>CORS: Set CORS headers
-    CORS->>+Auth: Pass request
+    CORS->>+Auth: Pass request to authentication middleware
     
     Auth->>Auth: Create AuthenticationService
     Auth->>+Clerk: authenticate(request)
     
     Clerk->>Clerk: Skip if OPTIONS request
-    Clerk->>Clerk: Extract JWT from header
-    Clerk->>Clerk: Verify with Clerk SDK
+    Clerk->>Clerk: Extract  from Authorization header
+    Clerk->>Clerk: Verify  using Clerk SDK
     
-    alt JWT Valid
-        Clerk-->>-Auth: Return SUCCESS with identity
+    alt  Valid Token
+        Clerk-->>Auth: Return SUCCESS with identity
         Auth->>Auth: Set identity in request
         Auth->>+Cont: Pass authenticated request
         
         Cont->>Cont: Access identity data
-        Cont-->>-Client: Return protected data
-    else JWT Invalid or Missing
-        Clerk-->>-Auth: Return FAILURE result
-        Auth-->>-CORS: Authentication error
+        Cont-->>Client: Return protected data
+        Cont-->>Auth: Return response to Auth Middleware
+        Auth-->>CORS: Return successful response to CORS Middleware
+        CORS-->>Client: Return final response to Client
+    else  Invalid or Missing Token
+        Clerk-->>Auth: Return FAILURE result
+        Auth-->>CORS: Authentication error
         CORS-->>Client: Return 401 Unauthorized
     end
 ```
