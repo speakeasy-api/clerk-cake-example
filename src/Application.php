@@ -27,7 +27,6 @@ use Cake\Http\MiddlewareQueue;
 use Cake\ORM\Locator\TableLocator;
 use Cake\Routing\Middleware\AssetMiddleware;
 use Cake\Routing\Middleware\RoutingMiddleware;
-use App\Middleware\ClerkAuthMiddleware;
 use App\Middleware\CorsMiddleware;
 use Authentication\AuthenticationService;
 use Authentication\AuthenticationServiceInterface;
@@ -110,7 +109,7 @@ class Application extends BaseApplication implements AuthenticationServiceProvid
             // Add CORS handling first - make sure it's instantiated properly
             ->add(new CorsMiddleware())
             
-            // Add Authentication directly (no need for ClerkAuthMiddleware)
+            // Add Authentication middleware
             ->add(new AuthenticationMiddleware($this));
 
         return $middlewareQueue;

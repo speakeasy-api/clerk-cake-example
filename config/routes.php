@@ -56,6 +56,12 @@ return function (RouteBuilder $routes): void {
          * to use (in this case, templates/Pages/home.php)...
         */
         $builder->connect('/', ['controller' => 'Pages', 'action' => 'display', 'home']);
+        
+        // API routes - using kebab-case URLs for better frontend compatibility
+        $builder->connect('/clerk-jwt', ['controller' => 'Protected', 'action' => 'clerkJwt']);
+        $builder->connect('/get-gated', ['controller' => 'Protected', 'action' => 'getGated']);
+        
+        // Keep backward compatibility with snake_case URLs
         $builder->connect('/clerk_jwt', ['controller' => 'Protected', 'action' => 'clerkJwt']);
         $builder->connect('/get_gated', ['controller' => 'Protected', 'action' => 'getGated']);
         /*
