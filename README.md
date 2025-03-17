@@ -1,12 +1,10 @@
 # Clerk Cake Example
 
-This project is an example of how to use the Clerk PHP SDK with CakePHP 5 to authenticate requests using JWT tokens from a Clerk frontend. The authentication is handled by a custom authenticator (`src/Auth/ClerkAuthenticator.php`) and demonstrated in the `src/Controller/ProtectedController.php` controller.
-
-This project is not optimized for production and contains a number of practices that should not be used in a production app (allow all CORS headers, no HTTPS, etc).
+A demonstration of using Clerk JWT authentication with CakePHP 5. This example shows how to integrate Clerk's user authentication with a CakePHP backend API.
 
 ## Installation
 
-Install dependencies:
+After cloning this repository:
 
 ```bash
 $ composer update
@@ -14,21 +12,25 @@ $ composer update
 
 ## Configuration
 
-Make sure the CLERK_SECRET_KEY [environment variable](https://clerk.com/docs/deployments/clerk-environment-variables#clerk-publishable-and-secret-keys) is set:
+Set the required environment variables:
 
 ```bash
-$ export CLERK_SECRET_KEY=my_secret_key
+$ export CLERK_API_SECRET_KEY=your_secret_key
+
+# Set authorized parties (comma-separated list of allowed origins)
+$ export CLERK_AUTHORIZED_PARTIES=http://localhost:5173
 ```
 
-Set `clerk.authorized_parties` in config/app_local.php:
+Configure Clerk in `config/app_local.php`:
+
 ```php
 'Clerk' => [
-    'secret_key' => env("SECRET_KEY"),
-    'authorized_parties' => ['http://localhost:5173'] # default location for clerk react app
+    'secret_key' => env("CLERK_API_SECRET_KEY"),
+    'authorized_parties' => explode(',', env("CLERK_AUTHORIZED_PARTIES"))
 ]
 ```
 
-## Running the Server
+## Running
 
 Start the CakePHP development server:
 
@@ -36,17 +38,11 @@ Start the CakePHP development server:
 $ bin/cake server
 ```
 
+The API will be available at http://localhost:8765
+
 ## How It Works
 
-The application uses the CakePHP Authentication plugin with a custom Clerk JWT authenticator. The authentication flow is:
-
-1. Requests pass through the CORS middleware to handle cross-origin requests
-2. The Authentication middleware processes the request using the ClerkAuthenticator
-3. ClerkAuthenticator verifies the JWT token using the Clerk SDK
-4. If valid, the user identity is set and accessible in the controllers
-5. Protected endpoints automatically check for valid authentication
-
-### Authentication Flow Diagram
+Authentication flow:
 
 ```mermaid
 sequenceDiagram
@@ -57,7 +53,7 @@ sequenceDiagram
     participant Clerk as ClerkAuthenticator
     participant Cont as ProtectedController
 
-    Client->>+CORS: HTTP Request with  token
+    Client->>+CORS: HTTP Request with JWT token
     CORS->>CORS: Set CORS headers
     CORS->>+Auth: Pass request to authentication middleware
     
@@ -65,10 +61,10 @@ sequenceDiagram
     Auth->>+Clerk: authenticate(request)
     
     Clerk->>Clerk: Skip if OPTIONS request
-    Clerk->>Clerk: Extract  from Authorization header
-    Clerk->>Clerk: Verify  using Clerk SDK
+    Clerk->>Clerk: Extract JWT from Authorization header
+    Clerk->>Clerk: Verify JWT using Clerk SDK
     
-    alt  Valid Token
+    alt JWT Valid
         Clerk-->>Auth: Return SUCCESS with identity
         Auth->>Auth: Set identity in request
         Auth->>+Cont: Pass authenticated request
@@ -78,50 +74,78 @@ sequenceDiagram
         Cont-->>Auth: Return response to Auth Middleware
         Auth-->>CORS: Return successful response to CORS Middleware
         CORS-->>Client: Return final response to Client
-    else  Invalid or Missing Token
+    else JWT Invalid or Missing
         Clerk-->>Auth: Return FAILURE result
         Auth-->>CORS: Authentication error
         CORS-->>Client: Return 401 Unauthorized
     end
 ```
 
-## Using from a Clerk Frontend
+## Frontend Integration
 
-From a Clerk frontend, use the `useSession` hook to retrieve the getToken() function:
+From a Clerk React frontend:
 
-```js
-const session = useSession();
-const getToken = session?.session?.getToken
-```
+```javascript
+import { useAuth } from '@clerk/clerk-react';
 
-Then, request the CakePHP server:
+function ApiExample() {
+  const { getToken } = useAuth();
+  
+  const fetchData = async () => {
+    if (getToken) {
+      // Get the userId or null if the token is invalid
+      let res = await fetch("http://localhost:8765/clerk-jwt", {
+          headers: {
+              "Authorization": `Bearer ${await getToken()}`
+          }
+      });
+      console.log(await res.json()); // {userId: 'the_user_id_or_null'}
 
-```js
-if (getToken) {
-    // get the userId or null if the token is invalid
-    let res = await fetch("http://localhost:8765/clerk-jwt", {
-        headers: {
-            "Authorization": `Bearer ${await getToken()}`
-        }
-    })
-    console.log(await res.json()) // {userId: 'the_user_id_or_null'}
-
-    // get gated data or a 401 Unauthorized if the token is not valid
-    res = await fetch("http://localhost:8765/get-gated", {
-        headers: {
-            "Authorization": `Bearer ${await getToken()}`
-        }
-    })
-    if (res.ok) {
-        console.log(await res.json()) // {foo: "bar"}
-    } else {
-        // token was invalid
+      // Get gated data or a 401 Unauthorized if the token is not valid
+      res = await fetch("http://localhost:8765/get-gated", {
+          headers: {
+              "Authorization": `Bearer ${await getToken()}`
+          }
+      });
+      if (res.ok) {
+          console.log(await res.json()); // {foo: "bar"}
+      } else {
+          // Token was invalid
+      }
     }
+  };
+  
+  return <button onClick={fetchData}>Fetch Data</button>;
 }
 ```
 
-## Key Files
+## API Reference
 
-- `src/Auth/ClerkAuthenticator.php` - Custom authenticator that verifies Clerk JWT tokens
-- `src/Controller/ProtectedController.php` - Example controller with protected endpoints
-- `src/Application.php` - Configures middleware and authentication service
+Available endpoints:
+
+- `GET /clerk-jwt` - Returns the authenticated user ID
+- `GET /get-gated` - Returns protected data (requires authentication)
+
+## Implementation Details
+
+Key files:
+
+- `src/Auth/ClerkAuthenticator.php` - Handles JWT validation
+- `src/Controller/ProtectedController.php` - Contains protected API endpoints
+- `src/Middleware/CorsMiddleware.php` - Manages CORS headers
+
+## ⚠️ Production Warning
+
+This project is not optimized for production and does not address all best practices that should be configured in a production app. It serves as a design template and should be given appropriate consideration before being used in production.
+
+Issues to address for production use:
+- CORS configuration is specific to development environments
+- No HTTPS enforcement
+- Minimal error handling (especially 401 errors)
+- Using development server settings
+
+For production deployment:
+1. Configure proper CORS settings for your specific domains
+2. Enforce HTTPS for all API communication
+3. Implement comprehensive error handling
+4. Use a production-grade web server instead of the built-in development server
