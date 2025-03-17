@@ -40,8 +40,10 @@ class AppController extends Controller
     public function initialize(): void
     {
         parent::initialize();
-
         $this->loadComponent('Flash');
+        $this->loadComponent('Authentication.Authentication', [
+            'requireIdentity' => false
+        ]);
 
         /*
          * Enable the following component for recommended CakePHP form protection settings.

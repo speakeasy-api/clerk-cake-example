@@ -21,47 +21,32 @@ use Cake\Http\Exception\ForbiddenException;
 use Cake\Http\Exception\NotFoundException;
 use Cake\Http\Response;
 use Cake\View\Exception\MissingTemplateException;
+use Cake\Event\EventInterface;
 
 /**
- * Static content controller
- *
- * This controller will render views from templates/Pages/
- *
- * @link https://book.cakephp.org/4/en/controllers/pages-controller.html
+ * Protected Controller for secured endpoints
+ * All methods in this controller require authentication
  */
 class ProtectedController extends AppController
 {
-    public function viewClasses(): array
+    /**
+     * Initialize controller settings
+     */
+    public function initialize(): void
     {
-        return [JsonView::class];
+        parent::initialize();
+        $this->viewBuilder()->setClassName('Json');
+        $this->viewBuilder()->setOption('serialize', ['data']);
     }
 
     public function clerkJwt()
     {
-        $this->viewBuilder()->setClassName('Json');
-
-        $authPayload = $this->getRequest()->getAttribute('verified_clerk_payload');
-        if ($authPayload !== null) {
-            $this->set('data', ['userId' => $authPayload->sub]);
-        } else {
-            $this->set('data', ['userId' => null]);
-         }
-        $this->viewBuilder()->setOption('serialize', ['data']);
-
+        $identity = $this->Authentication->getIdentity(); 
+        $this->set('data', ['userId' =>  $identity ? $identity->getIdentifier() : null]);
     }
 
     public function getGated()
-    {
-        $this->viewBuilder()->setClassName('Json');
-
-        $authPayload = $this->getRequest()->getAttribute('verified_clerk_payload');
-        if ($authPayload != null && $authPayload->sub) {
-            $this->set('data', ['foo' => 'bar']);
-        } else {
-            throw new ForbiddenException('You are not authorized to access this resource');
-        }
-
-        $this->viewBuilder()->setOption('serialize', ['data']);
+    {  
+        $this->set('data', ['foo' => 'bar']);
     }
-
 }
