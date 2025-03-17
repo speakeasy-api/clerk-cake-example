@@ -1,85 +1,67 @@
 # Clerk Cake Example
 
-A demonstration of using Clerk JWT authentication with CakePHP 5. This project uses a custom authenticator to verify Clerk JWT tokens from frontend requests.
+A demonstration of using Clerk JWT authentication with CakePHP 5. This example shows how to integrate Clerk's user authentication with a CakePHP backend API.
 
 ## Installation
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/clerk-cake-example.git
-cd clerk-cake-example
-
-# Install dependencies
-composer update
-```
-
-## Configuration & Running
-
-1. Set the Clerk Secret Key environment variable:
+After cloning this repository:
 
 ```bash
-export CLERK_SECRET_KEY=my_secret_key
+$ composer update
 ```
 
-2. Add Clerk configuration to `config/app_local.php`:
+## Configuration
+
+Set the required environment variables:
+
+```bash
+$ export CLERK_API_SECRET_KEY=your_secret_key
+
+# Set authorized parties (comma-separated list of allowed origins)
+$ export CLERK_AUTHORIZED_PARTIES=http://localhost:5173
+```
+
+Configure Clerk in `config/app_local.php`:
 
 ```php
 'Clerk' => [
-    'secret_key' => env("SECRET_KEY"),
-    'authorized_parties' => ['http://localhost:5173'] # default location for clerk react app
+    'secret_key' => env("CLERK_API_SECRET_KEY"),
+    'authorized_parties' => explode(',', env("CLERK_AUTHORIZED_PARTIES"))
 ]
 ```
 
-3. Start the CakePHP development server:
+## Running
+
+Start the CakePHP development server:
 
 ```bash
-bin/cake server
+$ bin/cake server
 ```
 
-The server will be available at http://localhost:8765
+The API will be available at http://localhost:8765
 
-## Authentication Flow
+## How It Works
+
+Simple authentication flow:
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant Client as Client Browser
-    participant CORS as CorsMiddleware
-    participant Auth as AuthenticationMiddleware
-    participant Clerk as ClerkAuthenticator
-    participant Cont as ProtectedController
-
-    Client->>+CORS: HTTP Request with JWT token
-    CORS->>CORS: Set CORS headers
-    CORS->>+Auth: Pass request to authentication middleware
+    participant Frontend
+    participant Backend
     
-    Auth->>Auth: Create AuthenticationService
-    Auth->>+Clerk: authenticate(request)
+    Frontend->>Backend: Request with JWT token
+    Note over Backend: Verify token with Clerk SDK
     
-    Clerk->>Clerk: Skip if OPTIONS request
-    Clerk->>Clerk: Extract JWT from Authorization header
-    Clerk->>Clerk: Verify JWT using Clerk SDK
-    
-    alt JWT Valid
-        Clerk-->>Auth: Return SUCCESS with identity
-        Auth->>Auth: Set identity in request
-        Auth->>+Cont: Pass authenticated request
-        
-        Cont->>Cont: Access identity data
-        Cont-->>Client: Return protected data
-        Cont-->>Auth: Return response to Auth Middleware
-        Auth-->>CORS: Return successful response to CORS Middleware
-        CORS-->>Client: Return final response to Client
-    else JWT Invalid or Missing
-        Clerk-->>Auth: Return FAILURE result
-        Auth-->>CORS: Authentication error
-        CORS-->>Client: Return 401 Unauthorized
+    alt Valid Token
+        Backend-->>Frontend: Return protected data
+    else Invalid Token
+        Backend-->>Frontend: 401 Unauthorized
     end
 ```
 
-## Usage
+## Frontend Integration
 
-From a React application:
+From a Clerk React frontend:
 
 ```javascript
 import { useAuth } from '@clerk/clerk-react';
@@ -90,7 +72,7 @@ function ApiExample() {
   const fetchData = async () => {
     if (getToken) {
       // Get the userId or null if the token is invalid
-      let res = await fetch("http://localhost:8000/api/clerk-jwt", {
+      let res = await fetch("http://localhost:8765/clerk-jwt", {
           headers: {
               "Authorization": `Bearer ${await getToken()}`
           }
@@ -98,7 +80,7 @@ function ApiExample() {
       console.log(await res.json()); // {userId: 'the_user_id_or_null'}
 
       // Get gated data or a 401 Unauthorized if the token is not valid
-      res = await fetch("http://localhost:8000/api/get-gated", {
+      res = await fetch("http://localhost:8765/get-gated", {
           headers: {
               "Authorization": `Bearer ${await getToken()}`
           }
@@ -115,29 +97,33 @@ function ApiExample() {
 }
 ```
 
-## Available API Endpoints
+## API Reference
 
-- `GET /clerk-jwt` - Returns user ID from the JWT token
-- `GET /get-gated` - Returns protected data, requires authentication
+Available endpoints:
 
-## Key Files
+- `GET /clerk-jwt` - Returns the authenticated user ID
+- `GET /get-gated` - Returns protected data (requires authentication)
 
-- `src/Auth/ClerkAuthenticator.php` - JWT token verification
-- `src/Controller/ProtectedController.php` - Protected endpoints
-- `src/Middleware/CorsMiddleware.php` - CORS configuration
+## Implementation Details
+
+Key files:
+
+- `src/Auth/ClerkAuthenticator.php` - Handles JWT validation
+- `src/Controller/ProtectedController.php` - Contains protected API endpoints
+- `src/Middleware/CorsMiddleware.php` - Manages CORS headers
 
 ## ⚠️ Production Warning
 
-This example is not optimized for production use and contains practices that should not be used in a production environment:
+This project is not optimized for production and does not address all best practices that should be configured in a production app. It serves as a design template and should be given appropriate consideration before being used in production.
 
-- CORS is configured to allow all headers
+Issues to address for production use:
+- CORS configuration is specific to development environments
 - No HTTPS enforcement
-- Minimal error handling
-- Development server configuration
+- Minimal error handling (especially 401 errors)
+- Using development server settings
 
-Before using in production, ensure you implement proper security practices, including:
-
-1. Restrict CORS to specific origins
-2. Enforce HTTPS
-3. Implement proper error handling and logging
-4. Use a production-grade web server
+For production deployment:
+1. Configure proper CORS settings for your specific domains
+2. Enforce HTTPS for all API communication
+3. Implement comprehensive error handling
+4. Use a production-grade web server instead of the built-in development server
