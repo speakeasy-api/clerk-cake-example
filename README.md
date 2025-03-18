@@ -92,11 +92,7 @@ Available endpoints:
 
 Key files:
 
-- `src/Auth/ClerkAuthenticator.php` - Handles JWT validation with the following features:
-  - Verifies JWT token using Clerk SDK
-  - Checks `requestState.isSignedIn` status to confirm valid authentication
-  - Extracts detailed error reasons from `requestState.errorReason` when authentication fails
-  - Validates the "azp" claim against the configured authorized parties
+- `src/Auth/ClerkAuthenticator.php` - Handles JWT validation 
 - `src/Controller/ProtectedController.php` - Contains protected API endpoints
 - `src/Middleware/CorsMiddleware.php` - Manages CORS headers
 
