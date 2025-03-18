@@ -17,6 +17,7 @@ Set the required environment variables:
 ```bash
 $ export CLERK_API_SECRET_KEY=your_secret_key
 
+# Set authorized parties (comma-separated list of allowed origins)
 $ export CLERK_AUTHORIZED_PARTIES=http://localhost:5173
 ```
 
@@ -82,7 +83,6 @@ function ApiExample() {
 Available endpoints:
 
 - `GET /clerk-jwt` - Returns the authenticated user ID
-# Set authorized parties (comma-separated list of allowed origins)
 - `GET /get-gated` - Returns protected data (requires authentication)
 
 ## Implementation Details
