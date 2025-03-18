@@ -15,10 +15,13 @@ $ composer update
 Set the required environment variables:
 
 ```bash
+# Set your Clerk API Secret Key
 $ export CLERK_API_SECRET_KEY=your_secret_key
 
 # Set authorized parties (comma-separated list of allowed origins)
-$ export CLERK_AUTHORIZED_PARTIES=http://localhost:5173
+# This verifies the "azp" claim in the JWT token, ensuring the token
+# was issued for one of these authorized applications
+$ export CLERK_AUTHORIZED_PARTIES=http://localhost:5173,https://your-app.clerk.accounts.dev
 ```
 
 Configure Clerk in `config/app_local.php`:
@@ -89,7 +92,11 @@ Available endpoints:
 
 Key files:
 
-- `src/Auth/ClerkAuthenticator.php` - Handles JWT validation
+- `src/Auth/ClerkAuthenticator.php` - Handles JWT validation with the following features:
+  - Verifies JWT token using Clerk SDK
+  - Checks `requestState.isSignedIn` status to confirm valid authentication
+  - Extracts detailed error reasons from `requestState.errorReason` when authentication fails
+  - Validates the "azp" claim against the configured authorized parties
 - `src/Controller/ProtectedController.php` - Contains protected API endpoints
 - `src/Middleware/CorsMiddleware.php` - Manages CORS headers
 

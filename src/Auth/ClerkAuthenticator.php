@@ -27,18 +27,33 @@ class ClerkAuthenticator extends AbstractAuthenticator
         }
 
         try {
+            // Get configuration
+            $secretKey = Configure::read('Clerk.secret_key');
+            
+            // Get authorized parties for "azp" claim validation
+            $authorizedParties = Configure::read('Clerk.authorized_parties');
+            
             // Verify JWT token using Clerk SDK
             $requestState = AuthenticateRequest::authenticateRequest(
                 $request,
                 new AuthenticateRequestOptions(
-                    secretKey: Configure::read('Clerk.secret_key'),
-                    authorizedParties: Configure::read('Clerk.authorized_parties')
+                    secretKey: $secretKey,
+                    authorizedParties: $authorizedParties
                 )
             );
             
-            // If authenticated, create minimal identity data
+            // Check if authentication succeeded AND user is signed in
             if ($requestState && $requestState->isSignedIn()) {
                 $payload = $requestState->getPayload();
+                
+                // Verify "azp" claim matches authorized parties (if present in payload)
+                if (isset($payload->azp) && !$this->isAuthorizedParty($payload->azp, $authorizedParties)) {
+                    return new Result(
+                        null, 
+                        ResultInterface::FAILURE_CREDENTIALS_INVALID,
+                        ['Invalid authorized party: Token not issued for this application']
+                    );
+                }
                 
                 // Only include essential user data
                 $userData = ['id' => $payload->sub];
@@ -46,18 +61,43 @@ class ClerkAuthenticator extends AbstractAuthenticator
                 return new Result($userData, ResultInterface::SUCCESS);
             }
             
-            // Authentication failed
-            return new Result(null, ResultInterface::FAILURE_CREDENTIALS_INVALID, 
-                ['Invalid credentials']);
-                
-        } catch (\Exception $e) {
-            // Log error if in debug mode
-            if (Configure::read('debug')) {
-                error_log('ClerkAuthenticator: ' . $e->getMessage());
+            // Get detailed error reason if available
+            $errorMessage = 'Authentication failed: Invalid credentials';
+            if ($requestState && method_exists($requestState, 'getErrorReason') && $requestState->getErrorReason()) {
+                $errorMessage = 'Authentication failed: ' . $requestState->getErrorReason();
             }
             
-            return new Result(null, ResultInterface::FAILURE_OTHER, 
-                ['Authentication error']);
+            // Return failure result with detailed error message
+            return new Result(
+                null, 
+                ResultInterface::FAILURE_CREDENTIALS_INVALID,
+                [$errorMessage]
+            );
+                
+        } catch (\Exception $e) {
+            return new Result(
+                null, 
+                ResultInterface::FAILURE_OTHER,
+                ['Authentication error: ' . $e->getMessage()]
+            );
         }
+    }
+    
+    /**
+     * Check if the azp claim matches one of the authorized parties
+     */
+    private function isAuthorizedParty(string $azp, array $authorizedParties): bool
+    {
+        if (empty($authorizedParties)) {
+            return false;
+        }
+        
+        foreach ($authorizedParties as $party) {
+            if ($azp === $party) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 } 
