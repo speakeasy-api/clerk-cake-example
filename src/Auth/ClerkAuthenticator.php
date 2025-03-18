@@ -29,8 +29,6 @@ class ClerkAuthenticator extends AbstractAuthenticator
         try {
             // Get configuration
             $secretKey = Configure::read('Clerk.secret_key');
-            
-            // Get authorized parties for "azp" claim validation
             $authorizedParties = Configure::read('Clerk.authorized_parties');
             
             // Verify JWT token using Clerk SDK
@@ -42,36 +40,36 @@ class ClerkAuthenticator extends AbstractAuthenticator
                 )
             );
             
-            // Check if authentication succeeded AND user is signed in
-            if ($requestState && $requestState->isSignedIn()) {
-                $payload = $requestState->getPayload();
-                
-                // Verify "azp" claim matches authorized parties (if present in payload)
-                if (isset($payload->azp) && !$this->isAuthorizedParty($payload->azp, $authorizedParties)) {
+            // Check if requestState was created successfully
+            if ($requestState) {
+                // Check if user is signed in
+                if ($requestState->isSignedIn()) {
+                    $payload = $requestState->getPayload();
+                    
+                    // Only include essential user data
+                    $userData = ['id' => $payload->sub];
+                    
+                    return new Result($userData, ResultInterface::SUCCESS);
+                } else {
+                    // User is not signed in - get detailed error reason if available
+                    $errorMessage = 'Authentication failed: User is not signed in';
+                    if (method_exists($requestState, 'getErrorReason') && $requestState->getErrorReason()) {
+                        $errorMessage = 'Authentication failed: ' . $requestState->getErrorReason();
+                    }
+                    
                     return new Result(
                         null, 
-                        ResultInterface::FAILURE_CREDENTIALS_INVALID,
-                        ['Invalid authorized party: Token not issued for this application']
+                        ResultInterface::FAILURE_IDENTITY_NOT_FOUND,
+                        [$errorMessage]
                     );
                 }
-                
-                // Only include essential user data
-                $userData = ['id' => $payload->sub];
-                
-                return new Result($userData, ResultInterface::SUCCESS);
             }
             
-            // Get detailed error reason if available
-            $errorMessage = 'Authentication failed: Invalid credentials';
-            if ($requestState && method_exists($requestState, 'getErrorReason') && $requestState->getErrorReason()) {
-                $errorMessage = 'Authentication failed: ' . $requestState->getErrorReason();
-            }
-            
-            // Return failure result with detailed error message
+            // Request state could not be created
             return new Result(
                 null, 
                 ResultInterface::FAILURE_CREDENTIALS_INVALID,
-                [$errorMessage]
+                ['Authentication failed: Invalid or missing JWT token']
             );
                 
         } catch (\Exception $e) {
@@ -81,23 +79,5 @@ class ClerkAuthenticator extends AbstractAuthenticator
                 ['Authentication error: ' . $e->getMessage()]
             );
         }
-    }
-    
-    /**
-     * Check if the azp claim matches one of the authorized parties
-     */
-    private function isAuthorizedParty(string $azp, array $authorizedParties): bool
-    {
-        if (empty($authorizedParties)) {
-            return false;
-        }
-        
-        foreach ($authorizedParties as $party) {
-            if ($azp === $party) {
-                return true;
-            }
-        }
-        
-        return false;
     }
 } 
