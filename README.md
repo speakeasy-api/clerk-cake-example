@@ -15,7 +15,6 @@ $ composer update
 Set the required environment variables:
 
 ```bash
-# Set your Clerk API Secret Key
 $ export CLERK_API_SECRET_KEY=your_secret_key
 
 $ export CLERK_AUTHORIZED_PARTIES=http://localhost:5173
@@ -89,7 +88,7 @@ Available endpoints:
 
 Key files:
 
-- `src/Auth/ClerkAuthenticator.php` - Handles JWT validation 
+- `src/Auth/ClerkAuthenticator.php` - Handles JWT validation
 - `src/Controller/ProtectedController.php` - Contains protected API endpoints
 - `src/Middleware/CorsMiddleware.php` - Manages CORS headers
 
