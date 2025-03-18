@@ -18,10 +18,7 @@ Set the required environment variables:
 # Set your Clerk API Secret Key
 $ export CLERK_API_SECRET_KEY=your_secret_key
 
-# Set authorized parties (comma-separated list of allowed origins)
-# This verifies the "azp" claim in the JWT token, ensuring the token
-# was issued for one of these authorized applications
-$ export CLERK_AUTHORIZED_PARTIES=http://localhost:5173,https://your-app.clerk.accounts.dev
+$ export CLERK_AUTHORIZED_PARTIES=http://localhost:5173
 ```
 
 Configure Clerk in `config/app_local.php`:
