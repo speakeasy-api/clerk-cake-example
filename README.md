@@ -82,6 +82,7 @@ function ApiExample() {
 Available endpoints:
 
 - `GET /clerk-jwt` - Returns the authenticated user ID
+# Set authorized parties (comma-separated list of allowed origins)
 - `GET /get-gated` - Returns protected data (requires authentication)
 
 ## Implementation Details
