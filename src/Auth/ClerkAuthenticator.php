@@ -27,37 +27,57 @@ class ClerkAuthenticator extends AbstractAuthenticator
         }
 
         try {
+            // Get configuration
+            $secretKey = Configure::read('Clerk.secret_key');
+            $authorizedParties = Configure::read('Clerk.authorized_parties');
+            
             // Verify JWT token using Clerk SDK
             $requestState = AuthenticateRequest::authenticateRequest(
                 $request,
                 new AuthenticateRequestOptions(
-                    secretKey: Configure::read('Clerk.secret_key'),
-                    authorizedParties: Configure::read('Clerk.authorized_parties')
+                    secretKey: $secretKey,
+                    authorizedParties: $authorizedParties
                 )
             );
             
-            // If authenticated, create minimal identity data
-            if ($requestState && $requestState->isSignedIn()) {
-                $payload = $requestState->getPayload();
-                
-                // Only include essential user data
-                $userData = ['id' => $payload->sub];
-                
-                return new Result($userData, ResultInterface::SUCCESS);
+            // Check if requestState was created successfully
+            if ($requestState) {
+                // Check if user is signed in
+                if ($requestState->isSignedIn()) {
+                    $payload = $requestState->getPayload();
+                    
+                    // Only include essential user data
+                    $userData = ['id' => $payload->sub];
+                    
+                    return new Result($userData, ResultInterface::SUCCESS);
+                } else {
+                    // User is not signed in - get detailed error reason if available
+                    $errorMessage = 'Authentication failed: User is not signed in';
+                    if (method_exists($requestState, 'getErrorReason') && $requestState->getErrorReason()) {
+                        $errorMessage = 'Authentication failed: ' . $requestState->getErrorReason();
+                    }
+                    
+                    return new Result(
+                        null, 
+                        ResultInterface::FAILURE_IDENTITY_NOT_FOUND,
+                        [$errorMessage]
+                    );
+                }
             }
             
-            // Authentication failed
-            return new Result(null, ResultInterface::FAILURE_CREDENTIALS_INVALID, 
-                ['Invalid credentials']);
+            // Request state could not be created
+            return new Result(
+                null, 
+                ResultInterface::FAILURE_CREDENTIALS_INVALID,
+                ['Authentication failed: Invalid or missing JWT token']
+            );
                 
         } catch (\Exception $e) {
-            // Log error if in debug mode
-            if (Configure::read('debug')) {
-                error_log('ClerkAuthenticator: ' . $e->getMessage());
-            }
-            
-            return new Result(null, ResultInterface::FAILURE_OTHER, 
-                ['Authentication error']);
+            return new Result(
+                null, 
+                ResultInterface::FAILURE_OTHER,
+                ['Authentication error: ' . $e->getMessage()]
+            );
         }
     }
 } 
